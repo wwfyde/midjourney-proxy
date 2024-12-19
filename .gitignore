@@ -368,3 +368,6 @@ FodyWeavers.xsd
 attachments
 ephemeral-attachments
 temps
+
+.idea/
+.DS_Store

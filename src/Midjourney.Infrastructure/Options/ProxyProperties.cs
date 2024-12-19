@@ -133,7 +133,7 @@ namespace Midjourney.Infrastructure
         /// <summary>
         /// 图片存储方式
         /// </summary>
-        public ImageStorageType ImageStorageType { get; set; } = ImageStorageType.NONE;
+        public ImageStorageType ImageStorageType { get; set; } = ImageStorageType.LOCAL;
 
         /// <summary>
         /// 阿里云存储配置
@@ -149,6 +149,11 @@ namespace Midjourney.Infrastructure
         /// Cloudflare R2 存储配置
         /// </summary>
         public CloudflareR2Options CloudflareR2 { get; set; } = new CloudflareR2Options();
+        
+        /// <summary>
+        /// Cloudflare MINIO 存储配置
+        /// </summary>
+        public MinioOptions MinioStorage { get; set; } = new MinioOptions();
 
         /// <summary>
         /// 换脸配置
@@ -296,6 +301,74 @@ namespace Midjourney.Infrastructure
         /// </summary>
         public int ExpiredMinutes { get; set; } = 0;
     }
+    
+    ///
+    /// <summary>
+    /// Minio存储配置
+    /// </summary>
+    public class MinioOptions
+    {
+        /// <summary>
+        /// Minio Account APPID
+        /// </summary>
+        public string Endpoint { get; set; }
+
+        /// <summary>
+        /// Minio AccessKey
+        /// </summary>
+        public string AccessKey { get; set; }
+
+        /// <summary>
+        /// Minio Secret Key
+        /// </summary>
+        public string SecretKey { get; set; }
+
+        /// <summary>
+        /// Bucket region ap-guangzhou ap-hongkong
+        /// en: https://intl.cloud.tencent.com/document/product/436/6224
+        /// zh: https://cloud.tencent.com/document/product/436/6224
+        /// </summary>
+        public string Region { get; set; }
+
+        /// <summary>
+        /// BucketName, format: BucketName-APPID
+        /// </summary>
+        public string BucketName { get; set; }
+
+        /// <summary>
+        /// 加速域名，可用于图片加速和图片审核使用
+        /// </summary>
+        public string CustomCdn { get; set; }
+
+        /// <summary>
+        /// 默认图片样式
+        /// </summary>
+        public string ImageStyle { get; set; }
+
+        /// <summary>
+        /// 默认缩略图图片样式
+        /// </summary>
+        public string ThumbnailImageStyle { get; set; }
+
+        /// <summary>
+        /// 视频截帧
+        /// https://cloud.tencent.com/document/product/436/55671
+        /// </summary>
+        public string VideoSnapshotStyle { get; set; }
+
+        ///// <summary>
+        ///// Storage class of the object
+        ///// en: https://intl.cloud.tencent.com/document/product/436/30925
+        ///// zh: https://cloud.tencent.com/document/product/436/33417
+        ///// </summary>
+        //public string StorageClass { get; set; }
+
+        /// <summary>
+        /// 链接默认有效时间
+        /// </summary>
+        public int ExpiredMinutes { get; set; } = 0;
+    }
+
 
     /// <summary>
     /// 邮件发送配置项

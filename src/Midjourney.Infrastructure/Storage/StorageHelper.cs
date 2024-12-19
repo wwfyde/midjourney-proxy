@@ -24,6 +24,7 @@
 
 using Midjourney.Infrastructure.Util;
 using System.Net;
+using Serilog;
 
 namespace Midjourney.Infrastructure.Storage
 {
@@ -42,6 +43,8 @@ namespace Midjourney.Infrastructure.Storage
         public static void Configure()
         {
             var config = GlobalConfiguration.Setting;
+            Log.Information("ImageStorageType: {ImageStorageType}", config.ImageStorageType);
+            Log.Information("Minio配置信息: {@0}", config.MinioStorage);
 
             if (config.ImageStorageType == ImageStorageType.LOCAL)
             {
@@ -58,6 +61,10 @@ namespace Midjourney.Infrastructure.Storage
             else if (config.ImageStorageType == ImageStorageType.R2)
             {
                 _instance = new CloudflareR2StorageService();
+            }
+            else if (config.ImageStorageType == ImageStorageType.MINIO)
+            {
+                _instance = new MinioStorageService();
             }
         }
 
@@ -102,15 +109,21 @@ namespace Midjourney.Infrastructure.Storage
             {
                 localPath = $"pri/{localPath}";
             }
+            
+            Log.Information("DownloadFile: {0}", localPath);
+            Log.Information("ImageStorageType: {0}", setting.ImageStorageType);
+            Log.Information("开始存储图片");
 
             // 阿里云 OSS
             if (setting.ImageStorageType == ImageStorageType.OSS)
             {
+                Log.Information("使用阿里云OSS存储: {@0}", setting.ImageStorageType);
                 var opt = setting.AliyunOss;
                 var cdn = opt.CustomCdn;
 
                 if (string.IsNullOrWhiteSpace(cdn) || imageUrl.StartsWith(cdn))
                 {
+                    Log.Warning("未使用CDN, 将不会保存图片, imageUrl: {0}, cdn: {1}", imageUrl, cdn);
                     return;
                 }
 
@@ -138,6 +151,9 @@ namespace Midjourney.Infrastructure.Storage
                         }
 
                         oss.SaveAsync(stream, localPath, mm);
+                        
+                        // 图片下载完成
+                        Log.Information("图片下载完成: {0}, {1}", localPath, url);
 
                         // 如果配置了链接有效期，则生成带签名的链接
                         if (opt.ExpiredMinutes > 0)
@@ -228,7 +244,7 @@ namespace Midjourney.Infrastructure.Storage
                 });
 
             }
-            else if(setting.ImageStorageType == ImageStorageType.R2)
+            else if (setting.ImageStorageType == ImageStorageType.R2)
             {
                 var opt = setting.CloudflareR2;
                 var cdn = opt.CustomCdn;
@@ -338,7 +354,71 @@ namespace Midjourney.Infrastructure.Storage
                     }
                 });
             }
+            
+            // TODO 增加Minio配置
+            else if (setting.ImageStorageType == ImageStorageType.MINIO)
+            {
+                var opt = setting.MinioStorage;
+                Log.Information("Minio配置信息: {@0}", opt);
+                var cdn = opt.CustomCdn;
 
+                if (string.IsNullOrWhiteSpace(cdn) || imageUrl.StartsWith(cdn))
+                {
+                    return;
+                }
+
+                // 本地锁
+                LocalLock.TryLock(lockKey, TimeSpan.FromSeconds(10), () =>
+                {
+                    var minio = new MinioStorageService();
+
+                    // 替换 url
+                    var url = $"{cdn?.Trim()?.Trim('/')}/{localPath}{uri?.Query}";
+
+                    // 下载图片并保存
+                    using (HttpClient client = new HttpClient(hch))
+                    {
+                        client.Timeout = TimeSpan.FromMinutes(15);
+
+                        var response = client.GetAsync(imageUrl).Result;
+                        response.EnsureSuccessStatusCode();
+                        var stream = response.Content.ReadAsStreamAsync().Result;
+
+                        var mm = MimeKit.MimeTypes.GetMimeType(Path.GetFileName(localPath));
+                        if (string.IsNullOrWhiteSpace(mm))
+                        {
+                            mm = "image/png";
+                        }
+
+                        minio.SaveAsync(stream, localPath, mm);
+
+                        // // 如果配置了链接有效期，则生成带签名的链接
+                        // if (opt.ExpiredMinutes > 0)
+                        // {
+                        //     var priUri = minio.GetSignKey(localPath, opt.ExpiredMinutes);
+                        //     url = $"{cdn?.Trim()?.Trim('/')}/{priUri.PathAndQuery.TrimStart('/')}";
+                        // }
+                    }
+
+                    if (action == TaskAction.SWAP_VIDEO_FACE)
+                    {
+                        imageUrl = url;
+                        thumbnailUrl = url.ToStyle(opt.VideoSnapshotStyle);
+                    }
+                    else if (action == TaskAction.SWAP_FACE)
+                    {
+                        // 换脸不格式化 url
+                        imageUrl = url;
+                        thumbnailUrl = url;
+                    }
+                    else
+                    {
+                        imageUrl = url.ToStyle(opt.ImageStyle);
+                        thumbnailUrl = url.ToStyle(opt.ThumbnailImageStyle);
+                    }
+                });
+            }
+            
             if (!string.IsNullOrWhiteSpace(imageUrl))
             {
                 taskInfo.ImageUrl = imageUrl;

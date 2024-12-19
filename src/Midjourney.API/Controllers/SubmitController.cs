@@ -41,9 +41,9 @@ namespace Midjourney.API.Controllers
     /// </summary>
     [ApiController]
     [Route("mj/submit")]
-    [Route("mj-fast/mj/submit")]
-    [Route("mj-turbo/mj/submit")]
-    [Route("mj-relax/mj/submit")]
+    // [Route("mj-fast/mj/submit")]
+    // [Route("mj-turbo/mj/submit")]
+    // [Route("mj-relax/mj/submit")]
     public class SubmitController : ControllerBase
     {
         private readonly ITranslateService _translateService;

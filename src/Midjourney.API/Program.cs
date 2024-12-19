@@ -33,7 +33,7 @@ namespace Midjourney.API
             var builder = CreateHostBuilder(args).Build();
             var env = builder.Services.GetService<IWebHostEnvironment>();
 
-            // ≈‰÷√ Serilog
+            // ÈÖçÁΩÆ Serilog
             var logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(builder.Services.GetService<IConfiguration>());
 
@@ -42,20 +42,20 @@ namespace Midjourney.API
                 logger.MinimumLevel.Debug()
                       .Enrich.FromLogContext();
 
-                //  π”√ Serilog.Debugging.SelfLog.Enable(Console.Error) ¿¥∆Ù”√ Serilog µƒ◊‘Œ“’Ô∂œ£¨’‚Ω´∞Ô÷˙’Ô∂œ≈‰÷√Œ Ã‚°£
+                // ‰ΩøÁî® Serilog.Debugging.SelfLog.Enable(Console.Error) Êù•ÂêØÁî® Serilog ÁöÑËá™ÊàëËØäÊñ≠ÔºåËøôÂ∞ÜÂ∏ÆÂä©ËØäÊñ≠ÈÖçÁΩÆÈóÆÈ¢ò„ÄÇ
                 SelfLog.Enable(Console.Error);
             }
 
             Log.Logger = logger.CreateLogger();
 
-            // »∑±£‘⁄”¶”√≥Ã–ÚΩ· ¯ ±πÿ±’≤¢À¢–¬»’÷æ
+            // Á°Æ‰øùÂú®Â∫îÁî®Á®ãÂ∫èÁªìÊùüÊó∂ÂÖ≥Èó≠Âπ∂Âà∑Êñ∞Êó•Âøó
             AppDomain.CurrentDomain.ProcessExit += (s, e) => Log.CloseAndFlush();
 
             try
             {
                 Log.Information($"Current: {Directory.GetCurrentDirectory()}");
 
-                ////  π”√ Serilog
+                //// ‰ΩøÁî® Serilog
                 //builder.Host.UseSerilog();
 
                 var app = builder;
@@ -64,7 +64,7 @@ namespace Midjourney.API
             }
             catch (Exception ex)
             {
-                Log.Fatal(ex, "”¶”√∆Ù∂Ø ß∞‹");
+                Log.Fatal(ex, "Â∫îÁî®ÂêØÂä®Â§±Ë¥•");
             }
             finally
             {

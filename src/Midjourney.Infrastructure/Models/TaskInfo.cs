@@ -287,6 +287,7 @@ namespace Midjourney.Infrastructure.Models
             try
             {
                 // 保存图片
+                Log.Information("尝试保存图片  {@0}", ImageUrl);
                 StorageHelper.DownloadFile(this);
             }
             catch (Exception ex)

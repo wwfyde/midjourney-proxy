@@ -36,9 +36,9 @@ namespace Midjourney.API.Controllers
     /// </summary>
     [ApiController]
     [Route("mj/task")]
-    [Route("mj-fast/mj/task")]
-    [Route("mj-turbo/mj/task")]
-    [Route("mj-relax/mj/task")]
+    // [Route("mj-fast/mj/task")]
+    // [Route("mj-turbo/mj/task")]
+    // [Route("mj-relax/mj/task")]
     public class TaskController : ControllerBase
     {
         private readonly ITaskStoreService _taskStoreService;

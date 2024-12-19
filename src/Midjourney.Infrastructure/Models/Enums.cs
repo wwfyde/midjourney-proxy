@@ -149,6 +149,12 @@ namespace Midjourney.Infrastructure
         /// Cloudflare R2
         /// </summary>
         R2 = 4,
+        
+        /// <summary>
+        /// MINIO
+        /// </summary>
+        MINIO = 5,
+        
     }
 
     /// <summary>
