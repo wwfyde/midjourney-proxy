@@ -34,6 +34,8 @@ using Midjourney.Infrastructure.Options;
 using Serilog;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using Midjourney.Infrastructure.Swagger;
+using Nacos.AspNetCore.V2;
 
 namespace Midjourney.API
 {
@@ -177,6 +179,9 @@ namespace Midjourney.API
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Midjourney API", Version = "v1" });
+                
+                // c.DocumentFilter<SwaggerPrefixFilter>();  // 添加这一行
+
 
                 c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
                 {
@@ -226,6 +231,19 @@ namespace Midjourney.API
                     c.IncludeXmlComments(xmlPath, true);
                 }
             });
+            services.AddCors(options =>
+            {
+                options.AddPolicy("MyPolicy", policy =>
+                {
+                    policy.AllowAnyOrigin() // 允许的域名
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
+            
+            // 服务注册
+            services.AddNacosAspNet(Configuration, "nacos");
+
         }
 
         public void Configure(IApplicationBuilder app, IHostEnvironment env)
@@ -241,14 +259,18 @@ namespace Midjourney.API
                 app.UseSwaggerUI();
             }
 
-            // TODO 禁用静态文件
+            //TODO: (禁用静态文件)
+            
+            
             // app.UseDefaultFiles(); // 启用默认文件（index.html）
             // app.UseStaticFiles(); // 配置提供静态文件
 
             app.UseCors(builder =>
             {
                 builder.AllowAnyMethod().AllowAnyHeader().SetIsOriginAllowed(origin => true).AllowCredentials();
+                // builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().SetIsOriginAllowed(origin => true);
             });
+            // app.UseCors("MyPolicy");
 
             app.UseRouting();
 
@@ -262,6 +284,10 @@ namespace Midjourney.API
 
             app.UseEndpoints(endpoints =>
             {
+                // 添加 统一路由前缀
+                // var group = endpoints.MapGroup("/midjourney");
+                // group.MapControllers();
+
                 endpoints.MapControllers();
             });
         }

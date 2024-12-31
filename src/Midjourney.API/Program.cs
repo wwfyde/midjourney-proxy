@@ -74,6 +74,7 @@ namespace Midjourney.API
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                // .UseNacosConfig(section: "NacosConfig", parser: null, logAction: null)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
