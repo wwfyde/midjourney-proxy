@@ -701,6 +701,7 @@ namespace Midjourney.API.Controllers
         private TaskInfo NewTask(BaseSubmitDTO baseDTO)
         {
             var user = _workContext.GetUser();
+            var outerUserId = _workContext.GetOuterUserId();
 
             var task = new TaskInfo
             {
@@ -711,6 +712,7 @@ namespace Midjourney.API.Controllers
                 ClientIp = _ip,
                 Mode = _mode,
                 UserId = user?.Id,
+                OuterUserId = outerUserId,  // 添加外部用户ID
                 IsWhite = user?.IsWhite ?? false
             };
 

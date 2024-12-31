@@ -20,7 +20,7 @@
         "HTTP_PROXY": "http://127.0.0.1:7890",
         "HTTPS_PROXY": "http://127.0.0.1:7890"
       },
-      "applicationUrl": "http://0.0.0.0:8080",
+      "applicationUrl": "http://localhost:48001/swagger",
       "dotnetRunMessages": true
     },
     "IIS Express": {

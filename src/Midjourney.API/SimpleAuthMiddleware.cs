@@ -63,6 +63,21 @@ namespace Midjourney.API
                 await _next(context);
                 return;
             }
+            
+            // 检查是否走了网关
+            if (context.Request.Headers.TryGetValue("X-Gateway-Origin", out var gateway))
+            {
+                context.Items["Gateway"] = gateway;
+                if (context.Request.Headers.TryGetValue("User-Code", out var userId))
+                {
+                    context.Items["AiMarkUserId"] = userId;
+                }
+                else
+                {
+                    context.Items["AiMarkUserId"] = "";
+                }
+            }
+
 
             // 检查是否有 AllowAnonymous 特性
             var endpoint = context.GetEndpoint();
@@ -80,6 +95,7 @@ namespace Midjourney.API
                 }
 
                 // 如果是管理员接口，需要管理员角色
+                // TODO 全局权限
                 if (context.Request.Path.StartsWithSegments("/mj/admin"))
                 {
                     if (user?.Role != EUserRole.ADMIN)

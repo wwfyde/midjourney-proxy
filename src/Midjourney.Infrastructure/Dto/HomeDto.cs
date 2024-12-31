@@ -72,5 +72,11 @@ namespace Midjourney.Infrastructure.Dto
         /// 绘图客户端 top 5
         /// </summary>
         public Dictionary<string, int> Tops { get; set; } = new Dictionary<string, int>();
+
+        /// <summary>
+        ///  请求头信息
+        /// </summary>
+        public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
+
     }
 }

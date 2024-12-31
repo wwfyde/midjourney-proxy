@@ -38,9 +38,9 @@ namespace Midjourney.API.Controllers
     /// </summary>
     [ApiController]
     [Route("mj/insight-face")]
-    [Route("mj-fast/mj/insight-face")]
-    [Route("mj-turbo/mj/insight-face")]
-    [Route("mj-relax/mj/insight-face")]
+    // [Route("mj-fast/mj/insight-face")]
+    // [Route("mj-turbo/mj/insight-face")]
+    // [Route("mj-relax/mj/insight-face")]
     public class InsightFaceController : ControllerBase
     {
         private readonly ILogger _logger;

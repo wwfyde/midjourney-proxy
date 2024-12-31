@@ -153,6 +153,11 @@ namespace Midjourney.Infrastructure.Models
         /// 自定义参数。
         /// </summary>
         public string State { get; set; }
+        
+        /// <summary>
+        ///  外部用户id  用于任务过滤
+        /// </summary>
+        public string OuterUserId { get; set; }
 
         /// <summary>
         /// 提交时间。

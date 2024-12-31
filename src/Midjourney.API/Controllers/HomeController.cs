@@ -64,7 +64,13 @@ namespace Midjourney.API.Controllers
                     IsGuest = GlobalConfiguration.Setting.EnableGuest == true,
                     IsDemoMode = GlobalConfiguration.IsDemoMode == true,
                     Version = GlobalConfiguration.Version,
-                    Notify = GlobalConfiguration.Setting.Notify
+                    Notify = GlobalConfiguration.Setting.Notify,
+                    
+                    // 添加请求头信息
+                    Headers = Request.Headers.ToDictionary(
+                    h => h.Key,
+                    h => string.Join(", ", h.Value)
+                        )
                 };
 
                 var now = new DateTimeOffset(DateTime.Now.Date).ToUnixTimeMilliseconds();

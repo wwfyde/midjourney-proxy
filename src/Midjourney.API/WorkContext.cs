@@ -34,6 +34,8 @@ namespace Midjourney.API
         private readonly IMemoryCache _memberCache;
         private readonly string _ip;
         private readonly string _token;
+        private readonly string _outerToken;
+        private readonly string _outerUserId;
 
         public WorkContext(IHttpContextAccessor contextAccessor, IMemoryCache memoryCache)
         {
@@ -46,13 +48,29 @@ namespace Midjourney.API
 
                 var hasAuthHeader = request.Headers.TryGetValue("Authorization", out var authHeader);
                 var hasApiSecretHeader = request.Headers.TryGetValue("Mj-Api-Secret", out var apiSecretHeader);
-                _token = hasAuthHeader ? authHeader.ToString() : apiSecretHeader.ToString();
+                // _token = hasAuthHeader ? authHeader.ToString() : apiSecretHeader.ToString();
+                _outerToken = hasAuthHeader ? authHeader.ToString() : string.Empty;
+                // Token 改用 Mj-Api-Secret 认证
+                _token = hasApiSecretHeader ?  apiSecretHeader.ToString(): string.Empty;
+                
+                var hasUserIdHeader = request.Headers.TryGetValue("User-Code", out var userId);
+                _outerUserId = hasUserIdHeader ? userId.ToString() : string.Empty;
             }
         }
 
         public string GetToken()
         {
             return _token;
+        }
+        public string GetOuterToken()
+        {
+            return _outerToken;
+        }
+        
+        public string GetOuterUserId()
+        {
+            if (_token == "super") return string.Empty;  // TODO 特殊处理, 超级管理员账号不使用 User-Code
+            return _outerUserId;
         }
 
         public string GetIp()

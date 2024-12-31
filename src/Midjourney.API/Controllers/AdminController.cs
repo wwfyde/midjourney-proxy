@@ -75,6 +75,8 @@ namespace Midjourney.API.Controllers
 
             // 如果不是管理员，并且是演示模式时，则是为匿名用户
             var user = workContext.GetUser();
+            
+            // var aiMarkUserId = context.HttpContext.Items["AiMarkUserId"]?.ToString();
 
             _isAnonymous = user?.Role != EUserRole.ADMIN;
             _properties = GlobalConfiguration.Setting;
@@ -82,18 +84,18 @@ namespace Midjourney.API.Controllers
             // 普通用户，无法登录管理后台，演示模式除外
             // 判断当前用户如果是普通用户
             // 并且不是匿名控制器时
-            if (user?.Role != EUserRole.ADMIN)
-            {
-                var endpoint = context.HttpContext.GetEndpoint();
-                var allowAnonymous = endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null;
-                if (!allowAnonymous && GlobalConfiguration.IsDemoMode != true)
-                {
-                    // 如果是普通用户, 并且不是匿名控制器，则返回 401
-                    context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                    context.HttpContext.Response.WriteAsync("Forbidden: User is not admin.");
-                    return;
-                }
-            }
+            // if (user?.Role != EUserRole.ADMIN)
+            // {
+            //     var endpoint = context.HttpContext.GetEndpoint();
+            //     var allowAnonymous = endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null;
+            //     if (!allowAnonymous && GlobalConfiguration.IsDemoMode != true)
+            //     {
+            //         // 如果是普通用户, 并且不是匿名控制器，则返回 401
+            //         context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+            //         context.HttpContext.Response.WriteAsync("Forbidden: User is not admin.");
+            //         return;
+            //     }
+            // }
         }
 
         ///// <summary>
@@ -1057,6 +1059,7 @@ namespace Midjourney.API.Controllers
         public ActionResult<StandardTableResult<TaskInfo>> Tasks([FromBody] StandardTableParam<TaskInfo> request)
         {
             var page = request.Pagination;
+            var outerUserId = _workContext.GetOuterUserId();
             if (page.PageSize > 100)
             {
                 page.PageSize = 100;
@@ -1076,12 +1079,15 @@ namespace Midjourney.API.Controllers
             var param = request.Search;
 
             // 这里使用原生查询，因为查询条件比较复杂
+            // TODO 需要同时考虑 LiteDB 和 MongoDB
             if (GlobalConfiguration.Setting.IsMongo)
             {
                 var coll = MongoHelper.GetCollection<TaskInfo>().AsQueryable();
                 var query = coll
                     .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id || c.State == param.Id)
                     .WhereIf(!string.IsNullOrWhiteSpace(param.InstanceId), c => c.InstanceId == param.InstanceId)
+                    // .WhereIf(!string.IsNullOrWhiteSpace(param.State), c => c.State == param.State)
+                    .WhereIf(!string.IsNullOrWhiteSpace(outerUserId), c => c.OuterUserId == outerUserId)  // 非管理员用户只能查看自己的任务
                     .WhereIf(param.Status.HasValue, c => c.Status == param.Status)
                     .WhereIf(param.Action.HasValue, c => c.Action == param.Action)
                     .WhereIf(!string.IsNullOrWhiteSpace(param.FailReason), c => c.FailReason.Contains(param.FailReason))
@@ -1103,6 +1109,8 @@ namespace Midjourney.API.Controllers
                 var query = LiteDBHelper.TaskStore.GetCollection().Query()
                 .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id || c.State == param.Id)
                 .WhereIf(!string.IsNullOrWhiteSpace(param.InstanceId), c => c.InstanceId == param.InstanceId)
+                // .WhereIf(!string.IsNullOrWhiteSpace(param.State), c => c.State == param.State)  // 增加State参数条件过滤
+                .WhereIf(!string.IsNullOrWhiteSpace(outerUserId), c => c.OuterUserId == outerUserId)  // 增加AiMark 账号过滤
                 .WhereIf(param.Status.HasValue, c => c.Status == param.Status)
                 .WhereIf(param.Action.HasValue, c => c.Action == param.Action)
                 .WhereIf(!string.IsNullOrWhiteSpace(param.FailReason), c => c.FailReason.Contains(param.FailReason))
