@@ -243,6 +243,7 @@ namespace Midjourney.Infrastructure.Storage
                 metadata.ContentType = mimeType;
             }
 
+            metadata.CacheControl = "public, max-age=2592000";
             var retryCount = 3;
             for (int i = 0; i < retryCount; i++)
             {
