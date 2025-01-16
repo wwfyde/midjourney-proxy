@@ -1087,11 +1087,12 @@ namespace Midjourney.API.Controllers
                     .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id || c.State == param.Id)
                     .WhereIf(!string.IsNullOrWhiteSpace(param.InstanceId), c => c.InstanceId == param.InstanceId)
                     // .WhereIf(!string.IsNullOrWhiteSpace(param.State), c => c.State == param.State)
-                    .WhereIf(!string.IsNullOrWhiteSpace(outerUserId), c => c.OuterUserId == outerUserId)  // 非管理员用户只能查看自己的任务
+                    .WhereIf(!string.IsNullOrWhiteSpace(outerUserId) && outerUserId != "admin", c => c.OuterUserId == outerUserId)  // 非管理员用户只能查看自己的任务
                     .WhereIf(param.Status.HasValue, c => c.Status == param.Status)
                     .WhereIf(param.Action.HasValue, c => c.Action == param.Action)
                     .WhereIf(!string.IsNullOrWhiteSpace(param.FailReason), c => c.FailReason.Contains(param.FailReason))
-                    .WhereIf(!string.IsNullOrWhiteSpace(param.Description), c => c.Description.Contains(param.Description) || c.Prompt.Contains(param.Description) || c.PromptEn.Contains(param.Description));
+                    .WhereIf(!string.IsNullOrWhiteSpace(param.Description), c => c.Description.Contains(param.Description) || c.Prompt.Contains(param.Description) || c.PromptEn.Contains(param.Description))
+                    .WhereIf(!string.IsNullOrWhiteSpace(param.OuterUserId), c => c.OuterUserId.Contains(param.OuterUserId));
 
                 var count = query.Count();
                 var list = query
@@ -1110,11 +1111,12 @@ namespace Midjourney.API.Controllers
                 .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id || c.State == param.Id)
                 .WhereIf(!string.IsNullOrWhiteSpace(param.InstanceId), c => c.InstanceId == param.InstanceId)
                 // .WhereIf(!string.IsNullOrWhiteSpace(param.State), c => c.State == param.State)  // 增加State参数条件过滤
-                .WhereIf(!string.IsNullOrWhiteSpace(outerUserId), c => c.OuterUserId == outerUserId)  // 增加AiMark 账号过滤
+                .WhereIf(!string.IsNullOrWhiteSpace(outerUserId) && outerUserId != "admin", c => c.OuterUserId == outerUserId)  // 增加AiMark 账号过滤
                 .WhereIf(param.Status.HasValue, c => c.Status == param.Status)
                 .WhereIf(param.Action.HasValue, c => c.Action == param.Action)
                 .WhereIf(!string.IsNullOrWhiteSpace(param.FailReason), c => c.FailReason.Contains(param.FailReason))
-                .WhereIf(!string.IsNullOrWhiteSpace(param.Description), c => c.Description.Contains(param.Description) || c.Prompt.Contains(param.Description) || c.PromptEn.Contains(param.Description));
+                .WhereIf(!string.IsNullOrWhiteSpace(param.Description), c => c.Description.Contains(param.Description) || c.Prompt.Contains(param.Description) || c.PromptEn.Contains(param.Description))
+                .WhereIf(!string.IsNullOrWhiteSpace(param.OuterUserId), c => c.OuterUserId.Contains(param.OuterUserId));
 
                 var count = query.Count();
                 var list = query

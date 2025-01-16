@@ -51,10 +51,10 @@ namespace Midjourney.API
                 // _token = hasAuthHeader ? authHeader.ToString() : apiSecretHeader.ToString();
                 _outerToken = hasAuthHeader ? authHeader.ToString() : string.Empty;
                 // Token 改用 Mj-Api-Secret 认证
-                _token = hasApiSecretHeader ?  apiSecretHeader.ToString(): string.Empty;
-                
+                _token = hasApiSecretHeader ? apiSecretHeader.ToString() : string.Empty;
+
                 var hasUserIdHeader = request.Headers.TryGetValue("User-Code", out var userId);
-                _outerUserId = hasUserIdHeader ? userId.ToString() : string.Empty;
+                _outerUserId = hasUserIdHeader ? userId.ToString() : "guest";
             }
         }
 
@@ -66,7 +66,7 @@ namespace Midjourney.API
         {
             return _outerToken;
         }
-        
+
         public string GetOuterUserId()
         {
             if (_token == "super") return string.Empty;  // TODO 特殊处理, 超级管理员账号不使用 User-Code
