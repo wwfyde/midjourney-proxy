@@ -179,14 +179,15 @@ namespace Midjourney.API
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Midjourney API", Version = "v1" });
-                
+
                 // c.DocumentFilter<SwaggerPrefixFilter>();  // 添加这一行
 
 
                 c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
                 {
                     Description = "在下框中输入请求头中需要添加的授权 Authorization: {Token}",
-                    Name = "Authorization", // 或者 "Mj-Api-Secret" 视具体需求而定
+                    // Name = "Authorization", // 或者 "Mj-Api-Secret" 视具体需求而定
+                    Name = "Mj-Api-Secret", // 或者 "Mj-Api-Secret" 视具体需求而定
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.ApiKey,
                     Scheme = "ApiKeyScheme"
@@ -240,7 +241,7 @@ namespace Midjourney.API
                         .AllowAnyMethod();
                 });
             });
-            
+
             // 服务注册
             services.AddNacosAspNet(Configuration, "nacos");
 
@@ -260,8 +261,8 @@ namespace Midjourney.API
             }
 
             //TODO: (禁用静态文件)
-            
-            
+
+
             // app.UseDefaultFiles(); // 启用默认文件（index.html）
             // app.UseStaticFiles(); // 配置提供静态文件
 
