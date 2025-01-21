@@ -43,6 +43,16 @@ namespace Midjourney.Infrastructure.Data
         /// User 账号存储。
         /// </summary>
         public static LiteDBRepository<User> UserStore = new LiteDBRepository<User>("data/mj.db");
+        
+        /// <summary>
+        /// OuterUser 账号存储。
+        /// </summary>
+        public static LiteDBRepository<OuterUser> OuterUserStore = new LiteDBRepository<OuterUser>("data/mj.db");
+        
+        /// <summary>
+        /// 配额存储
+        /// </summary>
+        public static LiteDBRepository<Quota> QuotaStore = new LiteDBRepository<Quota>("data/mj.db");
 
         /// <summary>
         /// 领域标签存储。

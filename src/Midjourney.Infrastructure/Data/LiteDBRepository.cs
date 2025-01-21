@@ -244,6 +244,13 @@ namespace Midjourney.Infrastructure.Data
         {
             return _db.GetCollection<T>().FindById(new BsonValue(id));
         }
+        /// <summary>
+        /// 根据OuterUserId获取实体
+        /// </summary>
+        public T GetByOuterUserId(string outerUserId)
+        {
+            return _db.GetCollection<T>().Find(Query.EQ("OuterUserId", outerUserId)).FirstOrDefault();
+        }
 
         /// <summary>
         /// 根据条件查询实体。

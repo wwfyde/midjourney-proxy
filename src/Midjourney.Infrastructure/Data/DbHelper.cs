@@ -36,6 +36,10 @@ namespace Midjourney.Infrastructure.Data
         private readonly IDataHelper<BannedWord> _bannedWordStore;
         //private readonly IDataHelper<Setting> _settingStore;
 
+        private readonly IDataHelper<OuterUser> _outerUserStore;
+        private readonly IDataHelper<Quota> _quotaStore;
+
+
         public DbHelper()
         {
             if (GlobalConfiguration.Setting.IsMongo)
@@ -45,6 +49,8 @@ namespace Midjourney.Infrastructure.Data
                 _userStore = new MongoDBRepository<User>();
                 _domainStore = new MongoDBRepository<DomainTag>();
                 _bannedWordStore = new MongoDBRepository<BannedWord>();
+                _outerUserStore = new MongoDBRepository<OuterUser>();
+                _quotaStore = new MongoDBRepository<Quota>();
                 //_settingStore = new MongoDBRepository<Setting>();
             }
             else
@@ -54,6 +60,8 @@ namespace Midjourney.Infrastructure.Data
                 _userStore = LiteDBHelper.UserStore;
                 _domainStore = LiteDBHelper.DomainStore;
                 _bannedWordStore = LiteDBHelper.BannedWordStore;
+                _outerUserStore = LiteDBHelper.OuterUserStore;
+                _quotaStore = LiteDBHelper.QuotaStore;
                 //_settingStore = LiteDBHelper.SettingStore;
             }
         }
@@ -72,6 +80,17 @@ namespace Midjourney.Infrastructure.Data
         /// User 数据库操作
         /// </summary>
         public IDataHelper<User> UserStore => _userStore;
+        
+        /// <summary>
+        /// OuterUser 数据库操作
+        /// </summary>
+        public IDataHelper<OuterUser> OuterUserStore => _outerUserStore;
+        
+        /// <summary>
+        /// Quota 数据库操作
+        /// </summary>
+        public IDataHelper<Quota> QuotaStore => _quotaStore;
+        
 
         /// <summary>
         /// 领域标签数据库操作

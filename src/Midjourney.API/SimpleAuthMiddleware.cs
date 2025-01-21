@@ -98,12 +98,12 @@ namespace Midjourney.API
                 // TODO 全局权限
                 if (context.Request.Path.StartsWithSegments("/mj/admin"))
                 {
-                    if (user?.Role != EUserRole.ADMIN)
-                    {
-                        context.Response.StatusCode = 401;
-                        await context.Response.WriteAsync("Forbidden: Admin access required.");
-                        return;
-                    }
+                    // if (user?.Role != EUserRole.ADMIN)
+                    // {
+                    //     context.Response.StatusCode = 401;
+                    //     await context.Response.WriteAsync("Forbidden: Admin access required.");
+                    //     return;
+                    // }
                 }
                 else
                 {

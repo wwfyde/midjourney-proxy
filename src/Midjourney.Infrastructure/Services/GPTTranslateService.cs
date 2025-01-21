@@ -97,6 +97,7 @@ namespace Midjourney.Infrastructure.Services
             try
             {
                 var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+                Log.Warning("_apiUrl: {0}", _apiUrl);
                 var response = _httpClient.PostAsync(_apiUrl, content).Result;
 
                 if (!response.IsSuccessStatusCode || string.IsNullOrWhiteSpace(response.Content.ReadAsStringAsync().Result))

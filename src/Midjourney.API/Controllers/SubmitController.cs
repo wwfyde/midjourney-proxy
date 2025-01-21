@@ -31,7 +31,8 @@ using Midjourney.Infrastructure.Services;
 using Midjourney.Infrastructure.Util;
 using System.Net;
 using System.Text.RegularExpressions;
-
+using Serilog;
+// using Serilog;
 using TaskStatus = Midjourney.Infrastructure.TaskStatus;
 
 namespace Midjourney.API.Controllers
@@ -822,6 +823,23 @@ namespace Midjourney.API.Controllers
                     }
                 }
             }
+            
+            
+            // TODO: 计算当前外部用户当日第几次绘图 并更新到Quota.UsedToday
+            if (!string.IsNullOrWhiteSpace(outerUserId))
+            {
+                var quotas = DbHelper.Instance.QuotaStore.Where(x => x.OuterUserId == outerUserId);
+                var quota = quotas.FirstOrDefault();
+                if (quota != null && quota.DailyQuota > 0)
+                {
+                    var outerUserTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= now && x.OuterUserId == outerUserId);
+                    if (outerUserTodayDrawCount > quota.DailyQuota)
+                    {
+                        throw new LogicException("今日绘图次数已达上限");
+                    }
+                }
+            }
+
 
             var notifyHook = string.IsNullOrWhiteSpace(baseDTO.NotifyHook) ? _properties.NotifyHook : baseDTO.NotifyHook;
             task.SetProperty(Constants.TASK_PROPERTY_NOTIFY_HOOK, notifyHook);
@@ -866,6 +884,7 @@ namespace Midjourney.API.Controllers
         /// <returns>翻译后的提示词</returns>
         private string TranslatePrompt(string prompt, EBotType botType)
         {
+            // Log.Warning("翻以前的提示词{0}", prompt);
             var setting = GlobalConfiguration.Setting;
 
             if (_properties.TranslateWay == TranslateWay.NULL || string.IsNullOrWhiteSpace(prompt) || !_translateService.ContainsChinese(prompt))
@@ -906,9 +925,11 @@ namespace Midjourney.API.Controllers
             {
                 text = text.Replace(imageUrl, "");
             }
+            // Log.Warning("尝试翻译提示词{0}", text);
             if (!string.IsNullOrWhiteSpace(text))
             {
                 text = _translateService.TranslateToEnglish(text).Trim();
+                // Log.Warning("翻译后的提示词{0}", text);
             }
             if (!string.IsNullOrWhiteSpace(paramStr))
             {

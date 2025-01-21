@@ -192,6 +192,13 @@ namespace Midjourney.Infrastructure.Data
         {
             return _collection.Find(Builders<T>.Filter.Eq("_id", id)).FirstOrDefault();
         }
+        /// <summary>
+        /// 根据OuterUserId获取实体
+        /// </summary>
+        public T GetByOuterUserId(string outerUserId)
+        {
+            return _collection.Find(Builders<T>.Filter.Eq("OuterUserId", outerUserId)).FirstOrDefault();
+        }
 
         public List<T> List()
         {

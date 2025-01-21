@@ -94,6 +94,13 @@ namespace Midjourney.Infrastructure.Data
         /// <param name="id">实体的 ID。</param>
         /// <returns>对应的实体对象。</returns>
         T Get(string id);
+        
+        /// <summary>
+        /// 根据 ID 获取实体。
+        /// </summary>
+        /// <param name="id">实体的 OuterUserID。</param>
+        /// <returns>对应的实体对象。</returns>
+        T GetByOuterUserId(string id);
 
         /// <summary>
         /// 根据条件查询实体。

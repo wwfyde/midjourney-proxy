@@ -12,13 +12,13 @@
     },
     "prod": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Production",
-        "http_proxy": "http://127.0.0.1:7890",
-        "https_proxy": "http://127.0.0.1:7890",
-        "HTTP_PROXY": "http://127.0.0.1:7890",
-        "HTTPS_PROXY": "http://127.0.0.1:7890"
+        "ASPNETCORE_ENVIRONMENT": "Production"
+//        "http_proxy": "http://127.0.0.1:7890",
+//        "https_proxy": "http://127.0.0.1:7890",
+//        "HTTP_PROXY": "http://127.0.0.1:7890",
+//        "HTTPS_PROXY": "http://127.0.0.1:7890"
       },
       "applicationUrl": "http://localhost:48001/swagger",
       "dotnetRunMessages": true
