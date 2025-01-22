@@ -73,6 +73,10 @@ namespace Midjourney.API.Controllers
             {
                 quota.Id = Guid.NewGuid().ToString();
                 Log.Warning("新建ID {0}, OuterUserId: {1}", quota.Id, quota.OuterUserId);
+                if (string.IsNullOrWhiteSpace(quota.OuterUserId))
+                {
+                    throw new LogicException("OuterUserId 不能为空");
+                }
                 quota.CreateTime = DateTime.Now;
 
             }
@@ -131,7 +135,7 @@ namespace Midjourney.API.Controllers
         // }
 
         /// <summary>
-        /// 分页查所有配额规则
+        /// 分页查查看所有配额规则
         /// </summary>
         [HttpPost("quotas")]
         public ActionResult<StandardTableResult<Quota>> GetQuotas([FromBody] StandardTableParam<Quota> request)
@@ -186,7 +190,7 @@ namespace Midjourney.API.Controllers
                     .OrderByIf(nameof(Quota.Remark).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.Remark, sort.Reverse)
                     .OrderByIf(nameof(Quota.OuterUserId).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.OuterUserId, sort.Reverse)
                     .OrderByIf(nameof(Quota.CreateTime).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.CreateTime, sort.Reverse)
-                    .OrderByIf(string.IsNullOrWhiteSpace(sort.Predicate), c => c.Remark, false)
+                    .OrderByIf(string.IsNullOrWhiteSpace(sort.Predicate), c => c.UpdateTime, true)
                     // .OrderBy(c => c.OuterUserId)
                     .Skip((page.Current - 1) * page.PageSize)
                     .Limit(page.PageSize)
@@ -226,8 +230,23 @@ namespace Midjourney.API.Controllers
         /// <summary>
         /// 获取用户当前配额
         /// </summary>
+        [HttpGet("quota/current")]
+        public ActionResult<Quota> GetQuota()
+        {
+            var outerUserId = _workContext.GetOuterUserId();
+            var quota = DbHelper.Instance.QuotaStore.GetByOuterUserId(outerUserId);
+            if (quota == null)
+            {
+                return NotFound();
+            }
+            return Ok(quota);
+        }
+        
+        /// <summary>
+        /// 按用户ID获取配额
+        /// </summary>
         [HttpGet("quota/{outerUserId}")]
-        public ActionResult<Quota> GetQuota(string outerUserId)
+        public ActionResult<Quota> GetQuota(string outerUserId )
         {
             var quota = DbHelper.Instance.QuotaStore.GetByOuterUserId(outerUserId);
             if (quota == null)

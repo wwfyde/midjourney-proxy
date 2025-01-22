@@ -24,6 +24,11 @@ public class Quota: DomainObject
     public int DailyQuota { get; set; } = -1;
     
     /// <summary>
+    /// 每月限额
+    /// </summary>
+    public int MonthlyQuota { get; set; } = -1;
+    
+    /// <summary>
     /// 今日已用
     /// </summary>
     public int UsedToday { get; set; }
