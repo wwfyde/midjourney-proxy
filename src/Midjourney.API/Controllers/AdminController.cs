@@ -785,6 +785,9 @@ namespace Midjourney.API.Controllers
             model.TimeoutMinutes = param.TimeoutMinutes;
             model.Weight = param.Weight;
             model.Remark = param.Remark;
+            model.Username = param.Username;
+            model.GuildName = param.GuildName;
+            model.ChannelName = param.ChannelName;
             model.Sponsor = param.Sponsor;
             model.Sort = param.Sort;
             model.PermanentInvitationLink = param.PermanentInvitationLink;
@@ -909,6 +912,65 @@ namespace Midjourney.API.Controllers
                 .ToList()
                 .OrderBy(c => c.Sort).ThenBy(c => c.DateCreated).ToList();
 
+            foreach (var item in list)
+            {
+                var inc = _loadBalancer.GetDiscordInstance(item.ChannelId);
+
+                item.RunningCount = inc?.GetRunningFutures().Count ?? 0;
+                item.QueueCount = inc?.GetQueueTasks().Count ?? 0;
+                item.Running = inc?.IsAlive ?? false;
+
+                if (user == null || (user.Role != EUserRole.ADMIN && user.Id != item.SponsorUserId))
+                {
+                    // Token 加密
+                    item.UserToken = item.UserToken?.Substring(0, item.UserToken.Length / 5) + "****";
+                    item.BotToken = item.BotToken?.Substring(0, item.BotToken.Length / 5) + "****";
+
+                    item.CfUrl = "****";
+                    item.CfHashUrl = "****";
+                    item.PermanentInvitationLink = "****";
+                    item.Remark = "****";
+
+                    if (item.SubChannels.Count > 0)
+                    {
+                        // 加密
+                        item.SubChannels = item.SubChannels.Select(c => "****").ToList();
+                    }
+                }
+            }
+
+            return Ok(list);
+        }
+        
+        /// <summary>
+        /// 获取所有账号信息并过滤（只返回启用账号）
+        /// </summary>
+        /// <returns>所有Discord账号信息</returns>
+        [HttpGet("filtered-accounts")]
+        public ActionResult<List<DiscordAccount>> FilteredList()
+        {
+            var user = _workContext.GetUser();
+
+            
+            
+            var outerUserId = _workContext.GetOuterUserId();
+            // 声明bindAccounts
+            List<string> bindAccounts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(outerUserId))
+            {
+                var quota = DbHelper.Instance.QuotaStore.GetByOuterUserId(outerUserId);
+                bindAccounts = quota?.BindAccounts ?? new List<string>();
+            } 
+            var list = DbHelper.Instance.AccountStore.GetAll().Where(c => c.Enable == true)
+                .ToList()
+                .OrderBy(c => c.Sort).ThenBy(c => c.DateCreated).ToList();
+            
+            // 账号过滤
+            if (bindAccounts.Count > 0)
+            {
+                list = list.Where(c => bindAccounts.Contains(c.ChannelId)).ToList();
+            }
+            
             foreach (var item in list)
             {
                 var inc = _loadBalancer.GetDiscordInstance(item.ChannelId);

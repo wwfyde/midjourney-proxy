@@ -565,6 +565,21 @@ namespace Midjourney.Infrastructure
         /// 备注
         /// </summary>
         public string Remark { get; set; }
+        
+        /// <summary>
+        /// 用户名
+        /// </summary>
+        public string Username { get; set; }
+        
+        /// <summary>
+        /// 服务器名
+        /// </summary>
+        public string GuildName { get; set; }
+        
+        /// <summary>
+        /// 频道名称
+        /// </summary>
+        public string ChannelName { get; set; }
 
         /// <summary>
         /// 赞助商（富文本）

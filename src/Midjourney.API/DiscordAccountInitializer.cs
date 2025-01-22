@@ -1089,6 +1089,9 @@ namespace Midjourney.API
                 model.TimeoutMinutes = param.TimeoutMinutes;
                 model.Weight = param.Weight;
                 model.Remark = param.Remark;
+                model.Username = param.Username;
+                model.GuildName = param.GuildName;
+                model.ChannelName = param.ChannelName;
                 model.BotToken = param.BotToken;
                 model.UserToken = param.UserToken;
                 model.Mode = param.Mode;

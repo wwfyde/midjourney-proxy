@@ -54,6 +54,25 @@ namespace Midjourney.Infrastructure.Models
         /// </summary>
         [Display(Name = "服务器ID")]
         public string GuildId { get; set; }
+        
+        /// <summary>
+        /// 账号名
+        /// </summary>
+        [Display(Name = "用户名")]
+        public string Username { get; set; }
+        
+        /// <summary>
+        /// 服务器名
+        /// </summary>
+        [Display(Name = "服务器名")]
+
+        public string GuildName { get; set; }
+        
+        /// <summary>
+        /// 频道名称
+        /// </summary>
+        [Display(Name = "频道名称")]
+        public string ChannelName { get; set; }
 
         /// <summary>
         /// Mj 私信频道ID, 用来接收 seed 值
@@ -571,6 +590,9 @@ namespace Midjourney.Infrastructure.Models
                 AllowModes = configAccount.AllowModes,
                 Weight = configAccount.Weight,
                 Remark = configAccount.Remark,
+                GuildName = configAccount.GuildName,
+                ChannelName = configAccount.ChannelName,
+                Username = configAccount.Username,
                 RemixAutoSubmit = configAccount.RemixAutoSubmit,
                 Sponsor = configAccount.Sponsor,
                 IsSponsor = configAccount.IsSponsor,

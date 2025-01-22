@@ -833,7 +833,7 @@ namespace Midjourney.API.Controllers
                 if (quota != null && quota.DailyQuota > 0)
                 {
                     var outerUserTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= now && x.OuterUserId == outerUserId);
-                    if (outerUserTodayDrawCount > quota.DailyQuota)
+                    if (outerUserTodayDrawCount >= quota.DailyQuota)
                     {
                         throw new LogicException("今日绘图次数已达上限");
                     }
