@@ -110,11 +110,26 @@ namespace Midjourney.API.Controllers
             var monthUsage = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= startOfMonth);
             var last7DaysUsage = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= startOf7Days);
 
-            var todayUser = DbHelper.Instance.TaskStore.Where(x => x.OuterUserId != null).Count(x => x.SubmitTime >= startOfToday);
-            var weekUser = DbHelper.Instance.TaskStore.Where(x => x.OuterUserId != null).Count(x => x.SubmitTime >= startOfWeek);
-            var monthUser = DbHelper.Instance.TaskStore.Where(x => x.OuterUserId != null).Count(x => x.SubmitTime >= startOfMonth);
-            var last7DaysUser = DbHelper.Instance.TaskStore.Where(x => x.OuterUserId != null).Count(x => x.SubmitTime >= startOf7Days);
+            var todayUser = DbHelper.Instance.TaskStore.Where(x => x.OuterUserId != null && x.SubmitTime >= startOfToday)
+                    .Select(x => x.OuterUserId)
+                    .Distinct()
+                    .Count();
+            
+            var weekUser = DbHelper.Instance.TaskStore
+                .Where(x => x.OuterUserId != null && x.SubmitTime >= startOfWeek)
+                .Select(x => x.OuterUserId)
+                .Distinct()
+                .Count();
 
+            var monthUser = DbHelper.Instance.TaskStore
+                .Where(x => x.OuterUserId != null && x.SubmitTime >= startOfMonth)
+                .Select(x => x.OuterUserId)
+                .Distinct()
+                .Count();
+            var last7DaysUser = DbHelper.Instance.TaskStore.Where(x => x.OuterUserId != null && x.SubmitTime >= startOf7Days)
+                .Select(x => x.OuterUserId)
+                .Distinct()
+                .Count();
             var totalUsage = new TotalUsageDTO
             {
                 TodayUsage = todayUsage,
