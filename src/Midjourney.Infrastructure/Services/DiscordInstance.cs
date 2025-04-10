@@ -185,7 +185,7 @@ namespace Midjourney.Infrastructure.LoadBalancer
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error(ex, "Failed to get account. {@0}", _account?.Id ?? "unknown");
+                    _logger.Error(ex, "{@1} - Failed to get account. {@0}", _account?.Id ?? "unknown", ErrorCode.MjAccountError);
                 }
 
                 return _account;

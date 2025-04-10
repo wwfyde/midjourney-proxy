@@ -110,9 +110,9 @@ namespace Midjourney.Infrastructure.Storage
                 localPath = $"pri/{localPath}";
             }
             
-            Log.Information("DownloadFile: {0}", localPath);
-            Log.Information("ImageStorageType: {0}", setting.ImageStorageType);
-            Log.Information("开始存储图片");
+            // Log.Information("DownloadFile: {0}", localPath);
+            // Log.Information("ImageStorageType: {0}", setting.ImageStorageType);
+            // Log.Information("开始存储图片");
 
             // 阿里云 OSS
             if (setting.ImageStorageType == ImageStorageType.OSS)

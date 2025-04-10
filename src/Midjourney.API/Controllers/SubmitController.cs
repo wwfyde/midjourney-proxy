@@ -83,6 +83,7 @@ namespace Midjourney.API.Controllers
             _discordLoadBalancer = discordLoadBalancer;
 
             var user = _workContext.GetUser();
+            var outerUserId = _workContext.GetOuterUserId();
 
             // 如果非演示模式、未开启访客，如果没有登录，直接返回 403 错误
             if (GlobalConfiguration.IsDemoMode != true
@@ -121,6 +122,7 @@ namespace Midjourney.API.Controllers
         public ActionResult<SubmitResultVO> Imagine([FromBody] SubmitImagineDTO imagineDTO)
         {
             string prompt = imagineDTO.Prompt;
+            string outerUserId = _workContext.GetOuterUserId();
             if (string.IsNullOrWhiteSpace(prompt))
             {
                 return Ok(SubmitResultVO.Fail(ReturnCode.VALIDATION_ERROR, "prompt不能为空"));
@@ -177,6 +179,7 @@ namespace Midjourney.API.Controllers
             NewTaskDoFilter(task, imagineDTO.AccountFilter);
 
             var data = _taskService.SubmitImagine(task, dataUrls);
+            Log.Information("用户[{@0}]创建了生图任务", outerUserId);
             return Ok(data);
         }
 
@@ -191,6 +194,7 @@ namespace Midjourney.API.Controllers
             var setting = GlobalConfiguration.Setting;
             if (!setting.EnableUserCustomUploadBase64)
             {
+                Log.Information("[{@0}] 用户[{@1}]尝试上传图片: 禁止上传",  ErrorCode.MjImageUploadError, _workContext.GetOuterUserId());
                 return Ok(SubmitResultVO.Fail(ReturnCode.VALIDATION_ERROR, "禁止上传"));
             }
 
@@ -737,6 +741,7 @@ namespace Midjourney.API.Controllers
                         var ipTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= now && x.ClientIp == _ip);
                         if (ipTodayDrawCount > GlobalConfiguration.Setting.GuestDefaultDayLimit)
                         {
+                            Log.Information("[{@0}]今日绘图次数已达上限", ErrorCode.UserQuotaLimited);
                             throw new LogicException("今日绘图次数已达上限");
                         }
                     }
@@ -835,7 +840,8 @@ namespace Midjourney.API.Controllers
                     var outerUserTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= now && x.OuterUserId == outerUserId);
                     if (outerUserTodayDrawCount >= quota.DailyQuota)
                     {
-                        throw new LogicException("今日绘图次数已达上限");
+                        Log.Information("[{0}]： 用户[{@1}]今日绘图次数超过使用限额", ErrorCode.UserQuotaLimited, outerUserId);
+                        throw new LogicException("今日绘图次数超过使用限额");
                     }
                 }
             }
