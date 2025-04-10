@@ -243,8 +243,11 @@ namespace Midjourney.API
             });
 
             // 服务注册
-            services.AddNacosAspNet(Configuration, "nacos");
-
+            var nacosConfig = Configuration.GetSection("nacos");
+            if (nacosConfig.Exists())
+            {
+                services.AddNacosAspNet(Configuration, "nacos");
+            }
         }
 
         public void Configure(IApplicationBuilder app, IHostEnvironment env)
