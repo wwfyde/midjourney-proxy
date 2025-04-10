@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "C#: Midjourney.API [prod]",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/src/Midjourney.API/Midjourney.API.csproj",
+            "launchConfigurationId": "TargetFramework=;prod"
+        }
+    ]
+}
