@@ -22,10 +22,14 @@
 // invasion of privacy, or any other unlawful purposes is strictly prohibited.
 // Violation of these terms may result in termination of the license and may subject the violator to legal action.
 
+using Discord;
+using FreeSql.DataAnnotations;
+using LiteDB;
 using Microsoft.Extensions.Caching.Memory;
 using Midjourney.Infrastructure.Data;
 using Midjourney.Infrastructure.Dto;
 using Midjourney.Infrastructure.Storage;
+using Newtonsoft.Json.Linq;
 using Serilog;
 
 namespace Midjourney.Infrastructure.Models
@@ -36,6 +40,13 @@ namespace Midjourney.Infrastructure.Models
     [BsonCollection("task")]
     [MongoDB.Bson.Serialization.Attributes.BsonIgnoreExtraElements]
     [Serializable]
+    [Index("i_UserId", "UserId")]
+    [Index("i_ClientIp", "ClientIp")]
+    [Index("i_InstanceId", "InstanceId")]
+    [Index("i_SubmitTime", "SubmitTime")]
+    [Index("i_Status", "Status")]
+    [Index("i_Action", "Action")]
+    [Index("i_ParentId", "ParentId")]
     public class TaskInfo : DomainObject
     {
         public TaskInfo()
@@ -117,7 +128,9 @@ namespace Midjourney.Infrastructure.Models
         /// 消息 ID
         /// 创建消息 ID -> 进度消息 ID -> 完成消息 ID
         /// </summary>
+        [JsonMap]
         public List<string> MessageIds { get; set; } = new List<string>();
+
 
         /// <summary>
         /// 任务类型。
@@ -132,21 +145,25 @@ namespace Midjourney.Infrastructure.Models
         /// <summary>
         /// 提示词。
         /// </summary>
+        [Column(StringLength = -1)]
         public string Prompt { get; set; }
 
         /// <summary>
         /// 提示词（英文）。
         /// </summary>
+        [Column(StringLength = -1)]
         public string PromptEn { get; set; }
 
         /// <summary>
         /// 提示词（由 mj 返回的完整提示词）
         /// </summary>
+        [Column(StringLength = -1)]
         public string PromptFull { get; set; }
 
         /// <summary>
         /// 任务描述。
         /// </summary>
+        [Column(StringLength = -1)]
         public string Description { get; set; }
 
         /// <summary>
@@ -177,11 +194,13 @@ namespace Midjourney.Infrastructure.Models
         /// <summary>
         /// 图片URL。
         /// </summary>
+        [Column(StringLength = 2000)]
         public string ImageUrl { get; set; }
 
         /// <summary>
         /// 缩略图 url
         /// </summary>
+        [Column(StringLength = 2000)]
         public string ThumbnailUrl { get; set; }
 
         /// <summary>
@@ -192,11 +211,13 @@ namespace Midjourney.Infrastructure.Models
         /// <summary>
         /// 失败原因。
         /// </summary>
+        [Column(StringLength = -1)]
         public string FailReason { get; set; }
 
         /// <summary>
         /// 按钮
         /// </summary>
+        [JsonMap]
         public List<CustomComponentModel> Buttons { get; set; } = new List<CustomComponentModel>();
 
         /// <summary>
@@ -205,6 +226,7 @@ namespace Midjourney.Infrastructure.Models
         [LiteDB.BsonIgnore]
         [MongoDB.Bson.Serialization.Attributes.BsonIgnore]
         [Newtonsoft.Json.JsonIgnore]
+        [Column(IsIgnore = true)]
         public Dictionary<string, object> Displays
         {
             get
@@ -257,11 +279,13 @@ namespace Midjourney.Infrastructure.Models
         /// <summary>
         /// 人脸源图片
         /// </summary>
+        [Column(StringLength = 2000)]
         public string ReplicateSource { get; set; }
 
         /// <summary>
         /// 目标图片/目标视频
         /// </summary>
+        [Column(StringLength = 2000)]
         public string ReplicateTarget { get; set; }
 
         /// <summary>
@@ -272,6 +296,7 @@ namespace Midjourney.Infrastructure.Models
         /// <summary>
         /// 账号过滤
         /// </summary>
+        [JsonMap]
         public AccountFilter AccountFilter { get; set; }
 
         /// <summary>
@@ -328,6 +353,8 @@ namespace Midjourney.Infrastructure.Models
             FinishTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             Status = TaskStatus.SUCCESS;
             Progress = "100%";
+
+            UpdateUserDrawCount();
         }
 
         /// <summary>
@@ -372,6 +399,46 @@ namespace Midjourney.Infrastructure.Models
                         }
                     }
                 }
+            }
+
+            UpdateUserDrawCount();
+        }
+
+        /// <summary>
+        /// 更新用户绘图次数。
+        /// </summary>
+        public void UpdateUserDrawCount()
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(UserId))
+                {
+                    var model = DbHelper.Instance.UserStore.Get(UserId);
+                    if (model != null)
+                    {
+                        if (model.TotalDrawCount <= 0)
+                        {
+                            // 重新计算
+                            model.TotalDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.UserId == UserId);
+                        }
+                        else
+                        {
+                            model.TotalDrawCount += 1;
+                        }
+
+                        // 今日日期
+                        var nowDate = new DateTimeOffset(DateTime.Now.Date).ToUnixTimeMilliseconds();
+
+                        // 计算今日绘图次数
+                        model.DayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= nowDate && x.UserId == UserId);
+
+                        DbHelper.Instance.UserStore.Update("DayDrawCount,TotalDrawCount", model);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "更新用户绘图次数失败");
             }
         }
     }

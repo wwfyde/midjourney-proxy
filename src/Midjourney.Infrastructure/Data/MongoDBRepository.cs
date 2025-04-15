@@ -166,6 +166,11 @@ namespace Midjourney.Infrastructure.Data
             return _collection.CountDocuments(predicate);
         }
 
+        public long Count()
+        {
+            return _collection.CountDocuments(c => true);
+        }
+
         public void Save(T entity)
         {
             if (entity != null && !string.IsNullOrEmpty(entity.Id))

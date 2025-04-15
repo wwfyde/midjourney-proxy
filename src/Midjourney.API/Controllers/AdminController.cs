@@ -22,6 +22,10 @@
 // invasion of privacy, or any other unlawful purposes is strictly prohibited.
 // Violation of these terms may result in termination of the license and may subject the violator to legal action.
 
+using System.Net;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Discord;
 using LiteDB;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,9 +38,6 @@ using Midjourney.Infrastructure.StandardTable;
 using Midjourney.Infrastructure.Storage;
 using MongoDB.Driver;
 using Serilog;
-using System.Net;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Midjourney.API.Controllers
 {
@@ -197,6 +198,9 @@ namespace Midjourney.API.Controllers
                 Role = EUserRole.USER,
                 Status = EUserStatus.NORMAL,
                 DayDrawLimit = GlobalConfiguration.Setting.RegisterUserDefaultDayLimit,
+                TotalDrawLimit = GlobalConfiguration.Setting.RegisterUserDefaultTotalLimit,
+                CoreSize = GlobalConfiguration.Setting.RegisterUserDefaultCoreSize,
+                QueueSize = GlobalConfiguration.Setting.RegisterUserDefaultQueueSize,
                 Email = mail,
                 RegisterIp = ip,
                 RegisterTime = DateTime.Now,
@@ -495,6 +499,123 @@ namespace Midjourney.API.Controllers
         }
 
         /// <summary>
+        /// 账号登录（通过账号、密码、2FA）
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        [HttpPost("account-login/{id}")]
+        public Result AccountLogin(string id)
+        {
+            var user = _workContext.GetUser();
+            if (user == null)
+            {
+                return Result.Fail("演示模式，禁止操作");
+            }
+
+            var model = DbHelper.Instance.AccountStore.Get(id);
+            if (model == null)
+            {
+                throw new LogicException("账号不存在");
+            }
+
+            if (user.Role != EUserRole.ADMIN && model.SponsorUserId != user.Id)
+            {
+                return Result.Fail("无权限操作");
+            }
+
+            if (string.IsNullOrWhiteSpace(model.LoginAccount)
+                || string.IsNullOrWhiteSpace(model.LoginPassword)
+                || string.IsNullOrWhiteSpace(model.Login2fa))
+            {
+                return Result.Fail("账号、密码、2FA 不能为空");
+            }
+
+            var ok = DiscordAccountHelper.AutoLogin(model, model.Enable ?? false);
+            if (ok)
+            {
+                return Result.Ok("登录请求已发送，请稍后刷新列表！");
+            }
+
+            return Result.Fail($"登录请求失败，请稍后重试！");
+        }
+
+        /// <summary>
+        /// 账号登录（通过账号、密码、2FA） - 登录完成回调
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [AllowAnonymous]
+        [HttpPost("account-login-notify")]
+        public ActionResult AccountLoginNotify([FromBody] AutoLoginRequest request)
+        {
+            if (!string.IsNullOrWhiteSpace(request.State) && !string.IsNullOrWhiteSpace(request.LoginAccount))
+            {
+                var item = DbHelper.Instance.AccountStore.Single(c => c.ChannelId == request.State && c.LoginAccount == request.LoginAccount);
+
+                if (item != null && item.IsAutoLogining == true)
+                {
+                    var secret = GlobalConfiguration.Setting.CaptchaNotifySecret;
+                    if (string.IsNullOrWhiteSpace(secret) || secret == request.Secret)
+                    {
+                        // 10 分钟之内有效
+                        if (item.LoginStart != null && (DateTime.Now - item.LoginStart.Value).TotalMinutes > 10)
+                        {
+                            if (request.Success)
+                            {
+                                request.Success = false;
+                                request.Message = "登录超时，超过 10 分钟";
+                            }
+
+                            Log.Warning("登录超时，超过 10 分钟 {@0}, time: {@1}", request, item.LoginStart);
+                        }
+
+                        if (request.Success && !string.IsNullOrWhiteSpace(request.Token))
+                        {
+                            item.IsAutoLogining = false;
+                            item.LoginStart = null;
+                            item.LoginEnd = null;
+                            item.LoginMessage = request.Message;
+                            item.UserToken = request.Token;
+
+                            // 如果登录成功，且登录前是启用状态，则更新为启用状态
+                            if (item.Enable != true && request.LoginBeforeEnabled)
+                            {
+                                item.Enable = request.LoginBeforeEnabled;
+                            }
+                        }
+                        else
+                        {
+                            // 更新失败原因
+                            item.LoginMessage = request.Message;
+                        }
+
+                        // 更新账号信息
+                        DbHelper.Instance.AccountStore.Update(item);
+
+                        // 清空缓存
+                        var inc = _loadBalancer.GetDiscordInstance(item.ChannelId);
+                        inc?.ClearAccountCache(item.Id);
+
+                        if (!request.Success)
+                        {
+                            // 发送邮件
+                            EmailJob.Instance.EmailSend(_properties.Smtp, $"自动登录失败-{item.ChannelId}", $"自动登录失败-{item.ChannelId}, {request.Message}, 请手动登录");
+                        }
+                    }
+                    else
+                    {
+                        // 签名错误
+                        Log.Warning("自动登录回调签名验证失败 {@0}", request);
+
+                        return Ok();
+                    }
+                }
+            }
+
+            return Ok();
+        }
+
+        /// <summary>
         /// 获取 cf 真人验证链接
         /// </summary>
         /// <param name="id"></param>
@@ -779,6 +900,14 @@ namespace Midjourney.API.Controllers
                 param.SponsorValidate();
             }
 
+            model.LoginAccount = param.LoginAccount?.Trim();
+            model.LoginPassword = param.LoginPassword?.Trim();
+            model.Login2fa = param.Login2fa?.Trim();
+            model.IsAutoLogining = false; // 重置自动登录状态
+            model.LoginStart = null;
+            model.LoginEnd = null;
+            model.LoginMessage = null;
+
             model.NijiBotChannelId = param.NijiBotChannelId;
             model.PrivateChannelId = param.PrivateChannelId;
             model.RemixAutoSubmit = param.RemixAutoSubmit;
@@ -990,6 +1119,10 @@ namespace Midjourney.API.Controllers
                     item.PermanentInvitationLink = "****";
                     item.Remark = "****";
 
+                    item.LoginAccount = "****";
+                    item.LoginPassword = "****";
+                    item.Login2fa = "****";
+
                     if (item.SubChannels.Count > 0)
                     {
                         // 加密
@@ -1035,7 +1168,8 @@ namespace Midjourney.API.Controllers
             var list = new List<DiscordAccount>();
             var count = 0;
 
-            if (GlobalConfiguration.Setting.IsMongo)
+            var setting = GlobalConfiguration.Setting;
+            if (setting.DatabaseType == DatabaseType.MongoDB)
             {
                 var coll = MongoHelper.GetCollection<DiscordAccount>().AsQueryable();
                 var query = coll
@@ -1058,7 +1192,7 @@ namespace Midjourney.API.Controllers
                     .Take(page.PageSize)
                     .ToList();
             }
-            else
+            else if (setting.DatabaseType == DatabaseType.LiteDB)
             {
                 var query = LiteDBHelper.AccountStore.GetCollection().Query()
                     .WhereIf(!string.IsNullOrWhiteSpace(param.GuildId), c => c.GuildId == param.GuildId)
@@ -1080,6 +1214,33 @@ namespace Midjourney.API.Controllers
                     .Limit(page.PageSize)
                     .ToList();
             }
+            else
+            {
+                var freeSql = FreeSqlHelper.FreeSql;
+                if (freeSql != null)
+                {
+                    var query = freeSql.Select<DiscordAccount>()
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.GuildId), c => c.GuildId == param.GuildId)
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.ChannelId), c => c.ChannelId == param.ChannelId)
+                        .WhereIf(param.Enable.HasValue, c => c.Enable == param.Enable)
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Remark), c => c.Remark.Contains(param.Remark))
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Sponsor), c => c.Sponsor.Contains(param.Sponsor));
+
+                    count = (int)query.Count();
+
+                    list = query
+                        .OrderByIf(nameof(DiscordAccount.GuildId).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.GuildId, sort.Reverse)
+                        .OrderByIf(nameof(DiscordAccount.ChannelId).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.ChannelId, sort.Reverse)
+                        .OrderByIf(nameof(DiscordAccount.Enable).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.Enable, sort.Reverse)
+                        .OrderByIf(nameof(DiscordAccount.Remark).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.Remark, sort.Reverse)
+                        .OrderByIf(nameof(DiscordAccount.Sponsor).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.Sponsor, sort.Reverse)
+                        .OrderByIf(nameof(DiscordAccount.DateCreated).Equals(sort.Predicate, StringComparison.OrdinalIgnoreCase), c => c.DateCreated, sort.Reverse)
+                        .OrderByIf(string.IsNullOrWhiteSpace(sort.Predicate), c => c.Sort, false)
+                        .Skip((page.Current - 1) * page.PageSize)
+                        .Take(page.PageSize)
+                        .ToList();
+                }
+            }
 
             foreach (var item in list)
             {
@@ -1099,6 +1260,10 @@ namespace Midjourney.API.Controllers
                     item.CfHashUrl = "****";
                     item.PermanentInvitationLink = "****";
                     item.Remark = "****";
+
+                    item.LoginAccount = "****";
+                    item.LoginPassword = "****";
+                    item.Login2fa = "****";
 
                     if (item.SubChannels.Count > 0)
                     {
@@ -1141,8 +1306,8 @@ namespace Midjourney.API.Controllers
             var param = request.Search;
 
             // 这里使用原生查询，因为查询条件比较复杂
-            // TODO 需要同时考虑 LiteDB 和 MongoDB
-            if (GlobalConfiguration.Setting.IsMongo)
+            var setting = GlobalConfiguration.Setting;
+            if (setting.DatabaseType == DatabaseType.MongoDB)
             {
                 var coll = MongoHelper.GetCollection<TaskInfo>().AsQueryable();
                 var query = coll
@@ -1167,7 +1332,7 @@ namespace Midjourney.API.Controllers
 
                 return Ok(data);
             }
-            else
+            else if (setting.DatabaseType == DatabaseType.LiteDB)
             {
                 var query = LiteDBHelper.TaskStore.GetCollection().Query()
                 .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id || c.State == param.Id)
@@ -1191,6 +1356,44 @@ namespace Midjourney.API.Controllers
 
                 return Ok(data);
             }
+            else
+            {
+                var freeSql = FreeSqlHelper.FreeSql;
+                if (freeSql != null)
+                {
+                    var query = freeSql.Select<TaskInfo>()
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id || c.State == param.Id)
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.InstanceId), c => c.InstanceId == param.InstanceId)
+                        .WhereIf(param.Status.HasValue, c => c.Status == param.Status)
+                        .WhereIf(param.Action.HasValue, c => c.Action == param.Action)
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.FailReason), c => c.FailReason.Contains(param.FailReason))
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Description), c => c.Description.Contains(param.Description) || c.Prompt.Contains(param.Description) || c.PromptEn.Contains(param.Description));
+
+                    var count = (int)query.Count();
+
+                    var list = query
+                        .OrderByDescending(c => c.SubmitTime)
+                        .Skip((page.Current - 1) * page.PageSize)
+                        .Take(page.PageSize)
+                        .ToList();
+
+                    var data = list.ToTableResult(request.Pagination.Current, request.Pagination.PageSize, count);
+
+                    return Ok(data);
+                }
+            }
+
+
+            return Ok(new StandardTableResult<TaskInfo>()
+            {
+                List = new List<TaskInfo>(),
+                Pagination = new StandardTablePagination()
+                {
+                    Current = page.Current,
+                    PageSize = page.PageSize,
+                    Total = 0
+                }
+            });
         }
 
         /// <summary>
@@ -1261,7 +1464,9 @@ namespace Midjourney.API.Controllers
 
             var count = 0;
             var list = new List<User>();
-            if (GlobalConfiguration.Setting.IsMongo)
+
+            var setting = GlobalConfiguration.Setting;
+            if (setting.DatabaseType == DatabaseType.MongoDB)
             {
                 var coll = MongoHelper.GetCollection<User>().AsQueryable();
                 var query = coll
@@ -1279,7 +1484,7 @@ namespace Midjourney.API.Controllers
                     .Take(page.PageSize)
                     .ToList();
             }
-            else
+            else if (setting.DatabaseType == DatabaseType.LiteDB)
             {
                 var query = LiteDBHelper.UserStore.GetCollection().Query()
                     .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id)
@@ -1296,6 +1501,26 @@ namespace Midjourney.API.Controllers
                    .Limit(page.PageSize)
                    .ToList();
             }
+            else
+            {
+                var freeSql = FreeSqlHelper.FreeSql;
+                if (freeSql != null)
+                {
+                    var query = freeSql.Select<User>()
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id)
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Name), c => c.Name.Contains(param.Name))
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Email), c => c.Email.Contains(param.Email))
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Phone), c => c.Phone.Contains(param.Phone))
+                        .WhereIf(param.Role.HasValue, c => c.Role == param.Role)
+                        .WhereIf(param.Status.HasValue, c => c.Status == param.Status);
+                    count = (int)query.Count();
+                    list = query
+                        .OrderByDescending(c => c.UpdateTime)
+                        .Skip((page.Current - 1) * page.PageSize)
+                        .Take(page.PageSize)
+                        .ToList();
+                }
+            }
 
             if (_isAnonymous)
             {
@@ -1309,7 +1534,7 @@ namespace Midjourney.API.Controllers
                 }
             }
 
-            var data = list.ToTableResult(request.Pagination.Current, request.Pagination.PageSize, count);
+            var data = list?.ToTableResult(request.Pagination.Current, request.Pagination.PageSize, count);
 
             return Ok(data);
         }
@@ -1464,7 +1689,8 @@ namespace Midjourney.API.Controllers
 
             var count = 0;
             var list = new List<DomainTag>();
-            if (GlobalConfiguration.Setting.IsMongo)
+            var setting = GlobalConfiguration.Setting;
+            if (setting.DatabaseType == DatabaseType.MongoDB)
             {
                 var coll = MongoHelper.GetCollection<DomainTag>().AsQueryable();
                 var query = coll
@@ -1478,7 +1704,7 @@ namespace Midjourney.API.Controllers
                     .Take(page.PageSize)
                     .ToList();
             }
-            else
+            else if (setting.DatabaseType == DatabaseType.LiteDB)
             {
                 var query = LiteDBHelper.DomainStore.GetCollection().Query()
                     .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id)
@@ -1491,8 +1717,24 @@ namespace Midjourney.API.Controllers
                    .Limit(page.PageSize)
                    .ToList();
             }
+            else
+            {
+                var freeSql = FreeSqlHelper.FreeSql;
+                if (freeSql != null)
+                {
+                    var query = freeSql.Select<DomainTag>()
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id)
+                        .WhereIf(!string.IsNullOrWhiteSpace(firstKeyword), c => c.Keywords.Contains(firstKeyword));
+                    count = (int)query.Count();
+                    list = query
+                        .OrderBy(c => c.Sort)
+                        .Skip((page.Current - 1) * page.PageSize)
+                        .Take(page.PageSize)
+                        .ToList();
+                }
+            }
 
-            var data = list.ToTableResult(request.Pagination.Current, request.Pagination.PageSize, count);
+            var data = list?.ToTableResult(request.Pagination.Current, request.Pagination.PageSize, count);
 
             return Ok(data);
         }
@@ -1592,7 +1834,8 @@ namespace Midjourney.API.Controllers
             var count = 0;
             var list = new List<BannedWord>();
 
-            if (GlobalConfiguration.Setting.IsMongo)
+            var setting = GlobalConfiguration.Setting;
+            if (setting.DatabaseType == DatabaseType.MongoDB)
             {
                 var coll = MongoHelper.GetCollection<BannedWord>().AsQueryable();
                 var query = coll
@@ -1606,7 +1849,7 @@ namespace Midjourney.API.Controllers
                    .Take(page.PageSize)
                    .ToList();
             }
-            else
+            else if (setting.DatabaseType == DatabaseType.LiteDB)
             {
                 var query = LiteDBHelper.BannedWordStore.GetCollection().Query()
                     .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id)
@@ -1619,8 +1862,24 @@ namespace Midjourney.API.Controllers
                     .Limit(page.PageSize)
                     .ToList();
             }
+            else
+            {
+                var freeSql = FreeSqlHelper.FreeSql;
+                if (freeSql != null)
+                {
+                    var query = freeSql.Select<BannedWord>()
+                        .WhereIf(!string.IsNullOrWhiteSpace(param.Id), c => c.Id == param.Id)
+                        .WhereIf(!string.IsNullOrWhiteSpace(firstKeyword), c => c.Keywords.Contains(firstKeyword));
+                    count = (int)query.Count();
+                    list = query
+                        .OrderBy(c => c.Sort)
+                        .Skip((page.Current - 1) * page.PageSize)
+                        .Take(page.PageSize)
+                        .ToList();
+                }
+            }
 
-            var data = list.ToTableResult(request.Pagination.Current, request.Pagination.PageSize, count);
+            var data = list?.ToTableResult(request.Pagination.Current, request.Pagination.PageSize, count);
 
             return Ok(data);
         }
@@ -1713,8 +1972,6 @@ namespace Midjourney.API.Controllers
                 throw new LogicException("系统配置错误，请重启服务");
             }
 
-            model.IsMongo = GlobalConfiguration.Setting.IsMongo;
-
             // 演示模式，部分配置不可见
             if (_isAnonymous)
             {
@@ -1765,6 +2022,11 @@ namespace Midjourney.API.Controllers
                     model.CloudflareR2.SecretKey = "****";
                 }
 
+                if (!string.IsNullOrWhiteSpace(model.DatabaseConnectionString))
+                {
+                    model.DatabaseConnectionString = "****";
+                }
+
                 model.CaptchaNotifySecret = "****";
             }
 
@@ -1795,8 +2057,10 @@ namespace Midjourney.API.Controllers
 
             // 首页缓存
             _memoryCache.Remove("HOME");
+
             var now = DateTime.Now.ToString("yyyyMMdd");
             var key = $"{now}_home";
+
             _memoryCache.Remove(key);
 
             return Result.Ok();
@@ -1821,7 +2085,7 @@ namespace Midjourney.API.Controllers
         }
 
         /// <summary>
-        /// 验证 mongo db 是否正常连接
+        /// 验证数据库是否正常连接
         /// </summary>
         /// <returns></returns>
         [HttpPost("verify-mongo")]
@@ -1832,13 +2096,7 @@ namespace Midjourney.API.Controllers
                 return Result.Fail("演示模式，禁止操作");
             }
 
-            if (string.IsNullOrWhiteSpace(GlobalConfiguration.Setting.MongoDefaultConnectionString)
-                || string.IsNullOrWhiteSpace(GlobalConfiguration.Setting.MongoDefaultDatabase))
-            {
-                return Result.Fail("MongoDB 配置错误，请保存配置后再验证");
-            }
-
-            var success = MongoHelper.Verify();
+            var success = DbHelper.Verify();
 
             return success ? Result.Ok() : Result.Fail("连接失败");
         }

@@ -727,7 +727,8 @@ namespace Midjourney.API.Controllers
                 task.RealBotType = EBotType.MID_JOURNEY;
             }
 
-            var now = new DateTimeOffset(DateTime.Now.Date).ToUnixTimeMilliseconds();
+            // 今日日期
+            var nowDate = new DateTimeOffset(DateTime.Now.Date).ToUnixTimeMilliseconds();
 
             // 计算当前 ip 当日第几次绘图
             // 如果不是白名单用户，则计算 ip 绘图限制
@@ -738,7 +739,7 @@ namespace Midjourney.API.Controllers
                 {
                     if (GlobalConfiguration.Setting.GuestDefaultDayLimit > 0)
                     {
-                        var ipTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= now && x.ClientIp == _ip);
+                        var ipTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= nowDate && x.ClientIp == _ip);
                         if (ipTodayDrawCount > GlobalConfiguration.Setting.GuestDefaultDayLimit)
                         {
                             Log.Information("[{@0}]今日绘图次数已达上限", ErrorCode.UserQuotaLimited);
@@ -816,15 +817,77 @@ namespace Midjourney.API.Controllers
                 }
             }
 
+            // 计算绘图限制
             // 计算当前用户当日第几次绘图
-            if (!string.IsNullOrWhiteSpace(user?.Id))
+            if (user != null)
             {
                 if (user.DayDrawLimit > 0)
                 {
-                    var userTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= now && x.UserId == user.Id);
+                    var userTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= nowDate && x.UserId == user.Id);
                     if (userTodayDrawCount > user.DayDrawLimit)
                     {
                         throw new LogicException("今日绘图次数已达上限");
+                    }
+                }
+
+                if (user.TotalDrawLimit > 0)
+                {
+                    var userTotalDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.UserId == user.Id);
+                    if (userTotalDrawCount > user.TotalDrawLimit)
+                    {
+                        throw new LogicException("总绘图次数已达上限");
+                    }
+                }
+            }
+
+            var setting = GlobalConfiguration.Setting;
+
+            // 计算并发数、队列数
+            if (user == null)
+            {
+                // 访客并发数
+                if (setting.GuestDefaultCoreSize > 0)
+                {
+                    var ipTodayDrawCount = (int)DbHelper.Instance.TaskStore
+                        .Count(x => x.SubmitTime >= nowDate && x.ClientIp == _ip && x.Status == TaskStatus.IN_PROGRESS);
+                    if (ipTodayDrawCount > setting.GuestDefaultCoreSize)
+                    {
+                        throw new LogicException("并发数已达上限");
+                    }
+                }
+
+                // 访客队列数
+                if (setting.GuestDefaultQueueSize > 0)
+                {
+                    var ipTodayDrawCount = (int)DbHelper.Instance.TaskStore
+                        .Count(x => x.SubmitTime >= nowDate && x.ClientIp == _ip && (x.Status == TaskStatus.NOT_START || x.Status == TaskStatus.SUBMITTED));
+                    if (ipTodayDrawCount > setting.GuestDefaultQueueSize)
+                    {
+                        throw new LogicException("队列数已达上限");
+                    }
+                }
+            }
+            else
+            {
+                // 用户并发数
+                if (user.CoreSize > 0)
+                {
+                    var userDrawCount = (int)DbHelper.Instance.TaskStore
+                        .Count(x => x.SubmitTime >= nowDate && x.UserId == user.Id && x.Status == TaskStatus.IN_PROGRESS);
+                    if (userDrawCount > user.CoreSize)
+                    {
+                        throw new LogicException("并发数已达上限");
+                    }
+                }
+
+                // 用户队列数
+                if (user.QueueSize > 0)
+                {
+                    var userDrawCount = (int)DbHelper.Instance.TaskStore
+                        .Count(x => x.SubmitTime >= nowDate && x.UserId == user.Id && (x.Status == TaskStatus.NOT_START || x.Status == TaskStatus.SUBMITTED));
+                    if (userDrawCount > user.QueueSize)
+                    {
+                        throw new LogicException("队列数已达上限");
                     }
                 }
             }
@@ -837,7 +900,8 @@ namespace Midjourney.API.Controllers
                 var quota = quotas.FirstOrDefault();
                 if (quota != null && quota.DailyQuota > 0)
                 {
-                    var outerUserTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= now && x.OuterUserId == outerUserId);
+                    
+                    var outerUserTodayDrawCount = (int)DbHelper.Instance.TaskStore.Count(x => x.SubmitTime >= nowDate && x.OuterUserId == outerUserId);
                     if (outerUserTodayDrawCount >= quota.DailyQuota)
                     {
                         Log.Information("[{0}]： 用户[{@1}]今日绘图次数超过使用限额", ErrorCode.UserQuotaLimited, outerUserId);
@@ -939,12 +1003,19 @@ namespace Midjourney.API.Controllers
             }
             if (!string.IsNullOrWhiteSpace(paramStr))
             {
+                // 当有 --no 参数时, 翻译 --no 参数, 并替换原参数
+                // --sref https://mjcdn.googlec.cc/1.jpg --no aa, bb, cc
                 var paramNomatcher = Regex.Match(paramStr, "--no\\s+(.*?)(?=--|$)");
                 if (paramNomatcher.Success)
                 {
                     string paramNoStr = paramNomatcher.Groups[1].Value.Trim();
                     string paramNoStrEn = _translateService.TranslateToEnglish(paramNoStr).Trim();
-                    paramStr = paramNomatcher.Result("--no " + paramNoStrEn + " ");
+
+                    // 提取 --no 之前的参数
+                    paramStr = paramStr.Substring(0, paramNomatcher.Index);
+
+                    // 替换 --no 参数
+                    paramStr = paramStr + paramNomatcher.Result("--no " + paramNoStrEn + " ");
                 }
             }
             return string.Concat(imageUrls) + text + paramStr;
